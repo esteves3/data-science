@@ -1,3 +1,8 @@
+from dslabs_functions import set_chart_labels
+from dslabs_functions import define_grid, HEIGHT
+from matplotlib.pyplot import savefig, show, subplots
+from matplotlib.figure import Figure
+from numpy import ndarray
 from dslabs_functions import *
 from matplotlib.pyplot import figure, savefig, show
 from pandas import read_csv, DataFrame
@@ -9,7 +14,7 @@ data: DataFrame = read_csv(filename, na_values="", index_col="ID")
 
 print(data.shape)
 
-
+'''
 # No Records vs No Variables
 
 
@@ -58,3 +63,128 @@ plot_bar_chart(
 )
 savefig(f"images/{file_tag}_variable_types.png")
 show()
+
+
+# GRANULARITY
+
+
+def analyse_property_granularity(
+    data: DataFrame, property: str, vars: list[str]
+) -> ndarray:
+    cols: int = len(vars)
+    fig: Figure
+    axs: ndarray
+    fig, axs = subplots(1, cols, figsize=(
+        cols * HEIGHT, HEIGHT), squeeze=False)
+    fig.suptitle(f"Granularity study for {property}")
+    for i in range(cols):
+        counts: Series[int] = data[vars[i]].value_counts()
+        plot_bar_chart(
+            counts.index.to_list(),
+            counts.to_list(),
+            ax=axs[0, i],
+            title=vars[i],
+            xlabel=vars[i],
+            ylabel="nr records",
+            percentage=False,
+        )
+    return axs
+
+
+analyse_property_granularity(data, "month", ["Month"])
+savefig(f"images/{file_tag}_granularity_month.png")
+
+'''
+# Data Distribution
+
+variables_types: dict[str, list] = get_variable_types(data)
+numeric: list[str] = variables_types["numeric"]
+summary5: DataFrame = data.describe(include="all")
+print(summary5[numeric])
+'''
+if [] != numeric:
+    # GLOBAL BOXPLOT
+    data[numeric].boxplot(rot=45)
+    savefig(f"images/{file_tag}_global_boxplot.png")
+    show()
+
+    # SINGULAR BOXPLOT
+    rows: int
+    cols: int
+    rows, cols = define_grid(len(numeric))
+    fig: Figure
+    axs: ndarray
+    fig, axs = subplots(
+        rows, cols, figsize=(cols * HEIGHT, rows * HEIGHT), squeeze=False
+    )
+   
+    i, j = 0, 0
+    for n in range(len(numeric)):
+        axs[i, j].set_title("Boxplot for %s" % numeric[n])
+        axs[i, j].boxplot(data[numeric[n]].dropna().values)
+        i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
+    savefig(f"images/{file_tag}_single_boxplots.png")
+    show()
+
+    # OUTLIERS IDENTIFICATION
+    outliers: dict[str, int] = count_outliers(
+        data, numeric)
+    figure(figsize=(12, HEIGHT + 4))
+    plot_multibar_chart(
+        numeric,
+        outliers,
+        title="Nr of standard outliers per variable",
+        xlabel="variables",
+        ylabel="nr outliers",
+        percentage=False,
+    )
+
+    savefig(f"images/{file_tag}_outliers_standard.png")
+    show()
+
+    # HISTOGRAMAS
+    fig, axs = subplots(
+        rows, cols, figsize=(cols * HEIGHT, rows * HEIGHT), squeeze=False
+    )
+    i: int
+    j: int
+    i, j = 0, 0
+    for n in range(len(numeric)):
+        set_chart_labels(
+            axs[i, j],
+            title=f"Histogram for {numeric[n]}",
+            xlabel=numeric[n],
+            ylabel="nr records",
+        )
+        axs[i, j].hist(data[numeric[n]].dropna().values, "auto")
+        i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
+    savefig(f"images/{file_tag}_single_histograms_numeric.png")
+    show()
+else:
+    print("There are no numeric variables.")
+'''
+
+
+if [] != numeric:
+    rows: int
+    cols: int
+    rows, cols = define_grid(len(numeric))
+    fig, axs = subplots(
+        rows, cols, figsize=(cols * HEIGHT, rows * HEIGHT), squeeze=False
+    )
+    i: int
+    j: int
+    i, j = 0, 0
+    for n in range(len(numeric)):
+        set_chart_labels(
+            axs[i, j],
+            title=f"Histogram for {numeric[n]}",
+            xlabel=numeric[n],
+            ylabel="nr records",
+        )
+        axs[i, j].hist(data[numeric[n]].dropna().values, "auto")
+        i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
+    savefig(f"images/{file_tag}_single_histograms_numeric.png")
+    show()
+else:
+    print("There are no numeric variables.")
