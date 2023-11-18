@@ -119,7 +119,7 @@ def plot_multiline_chart(xvalues: list, yvalues: dict, ax: Axes = None, title: s
     if ax is None:
         ax = gca()
     ax = set_chart_labels(ax=ax, title=title, xlabel=xlabel, ylabel=ylabel)
-    ax = set_chart_xticks(xvalues, ax=ax, percentage=percentage)
+    #ax = set_chart_xticks(xvalues, ax=ax, percentage=percentage)
     legend: list = []
     for name, y in yvalues.items():
         ax.plot(xvalues, y)
