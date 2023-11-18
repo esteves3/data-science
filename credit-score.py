@@ -1,10 +1,13 @@
+from dslabs_functions import get_variable_types
+from seaborn import heatmap
+from dslabs_functions import HEIGHT, plot_multi_scatters_chart
+from matplotlib.pyplot import figure, subplots, savefig, show, gcf
+from dslabs_functions import plot_bar_chart
 from dslabs_functions import set_chart_labels
 from dslabs_functions import define_grid, HEIGHT
-from matplotlib.pyplot import savefig, show, subplots
 from matplotlib.figure import Figure
 from numpy import ndarray
 from dslabs_functions import *
-from matplotlib.pyplot import figure, savefig, show
 from pandas import read_csv, DataFrame
 from numpy import log
 from pandas import Series
@@ -30,7 +33,7 @@ values: dict[str, int] = {
 plot_bar_chart(
     list(values.keys()), list(values.values()), title="Nr of records vs nr variables"
 )
-savefig(f"images/{file_tag}_records_variables.png")
+savefig(f"images/{file_tag}_records_variables.png", bbox_inches="tight")
 show()
 
 
@@ -49,7 +52,7 @@ plot_bar_chart(
     xlabel="variables",
     ylabel="nr missing values",
 )
-savefig(f"images/{file_tag}_mv.png")
+savefig(f"images/{file_tag}_mv.png", bbox_inches="tight")
 show()
 
 
@@ -66,7 +69,7 @@ figure(figsize=(4, 4))
 plot_bar_chart(
     list(counts.keys()), list(counts.values()), title="Nr of variables per type"
 )
-savefig(f"images/{file_tag}_variable_types.png")
+savefig(f"images/{file_tag}_variable_types.png", bbox_inches="tight")
 show()
 
 
@@ -97,7 +100,7 @@ def analyse_property_granularity(
 
 
 analyse_property_granularity(data, "month", ["Month"])
-savefig(f"images/{file_tag}_granularity_month.png")
+savefig(f"images/{file_tag}_granularity_month.png", bbox_inches="tight")
 
 '''
 # Data Distribution
@@ -110,7 +113,7 @@ print(summary5[numeric])
 if [] != numeric:
     # GLOBAL BOXPLOT
     data[numeric].boxplot(rot=45)
-    savefig(f"images/{file_tag}_global_boxplot.png")
+    savefig(f"images/{file_tag}_global_boxplot.png", bbox_inches="tight")
     show()
 
     # SINGULAR BOXPLOT
@@ -129,7 +132,7 @@ if [] != numeric:
         axs[i, j].set_title("Boxplot for %s" % numeric[n])
         axs[i, j].boxplot(data[numeric[n]].dropna().values)
         i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
-    savefig(f"images/{file_tag}_single_boxplots.png")
+    savefig(f"images/{file_tag}_single_boxplots.png", bbox_inches="tight")
     show()
 
     # OUTLIERS IDENTIFICATION
@@ -145,25 +148,36 @@ if [] != numeric:
         percentage=False,
     )
 
-    savefig(f"images/{file_tag}_outliers_standard.png")
+    savefig(f"images/{file_tag}_outliers_standard.png", bbox_inches="tight")
     show()
-'''
-    # HISTOGRAMAS
-    fig, axs = subplots(rows, cols, figsize=(
-        cols * HEIGHT, rows * HEIGHT), squeeze=False)
-    i: int
-    j: int
+
+    # HISTOGRAMS
+    fig, axs = subplots(
+        rows, cols, figsize=(cols * HEIGHT, rows * HEIGHT), squeeze=False
+    )
     i, j = 0, 0
-    for n in range(len(numeric)):
+    for n in range(len(numeric)-1):
         set_chart_labels(
             axs[i, j],
             title=f"Histogram for {numeric[n]}",
             xlabel=numeric[n],
             ylabel="nr records",
         )
-        axs[i, j].hist(data[numeric[n]].dropna().values, 100)
+        axs[i, j].hist(data[numeric[n]].dropna().values, 'auto')
         i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
-    savefig(f"images/{file_tag}_single_histograms_numeric.png")
+
+    # monthly balance:
+    n += 1
+    set_chart_labels(
+        axs[i, j],
+        title=f"Histogram for {numeric[n]}",
+        xlabel=numeric[n],
+        ylabel="nr records",
+    )
+    axs[i, j].hist(data[numeric[n]].dropna().values, 50)
+    i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
+
+    savefig(f"images/{file_tag}_single_histograms_numeric.png", bbox_inches="tight")
     show()
 
     # HISTOGRAMAS W/ DISTRIBUTION
@@ -206,8 +220,65 @@ if [] != numeric:
         histogram_with_distributions(
             axs[i, j], data[numeric[n]].dropna(), numeric[n])
         i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
-    savefig(f"images/{file_tag}_histogram_numeric_distribution.png")
+    savefig(f"images/{file_tag}_histogram_numeric_distribution.png", bbox_inches="tight")
     show()
-
+'''
 else:
     print("There are no numeric variables.")
+
+'''
+symbolic: list[str] = variables_types["symbolic"] + variables_types["binary"]
+if [] != symbolic:
+    rows, cols = define_grid(len(symbolic))
+    fig, axs = subplots(
+        rows, cols, figsize=(cols * HEIGHT, rows * HEIGHT), squeeze=False
+    )
+    i, j = 0, 0
+    for n in range(len(symbolic)):
+        counts: Series = data[symbolic[n]].value_counts()
+        plot_bar_chart(
+            counts.index.to_list(),
+            counts.to_list(),
+            ax=axs[i, j],
+            title="Histogram for %s" % symbolic[n],
+            xlabel=symbolic[n],
+            ylabel="nr records",
+            percentage=False,
+        )
+        i, j = (i + 1, 0) if (n + 1) % cols == 0 else (i, j + 1)
+    savefig(f"images/{file_tag}_histograms_symbolic.png", bbox_inches="tight")
+    show()
+else:
+    print("There are no symbolic variables.")
+
+'''
+target = "Credit_Score"
+
+values: Series = data[target].value_counts()
+print(values)
+
+figure(figsize=(4, 2))
+plot_bar_chart(
+    values.index.to_list(),
+    values.to_list(),
+    title=f"Target distribution (target={target})",
+)
+savefig(f"images/{file_tag}_class_distribution.png", bbox_inches="tight")
+show()
+
+
+numeric: list[str] = variables_types["numeric"]
+corr_mtx: DataFrame = data[numeric].corr().abs()
+
+figure()
+heatmap(
+    abs(corr_mtx),
+    xticklabels=numeric,
+    yticklabels=numeric,
+    annot=False,
+    cmap="Blues",
+    vmin=0,
+    vmax=1,
+)
+savefig(f"images/{file_tag}_correlation_analysis.png", bbox_inches="tight")
+show()
