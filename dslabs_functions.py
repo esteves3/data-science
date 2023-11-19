@@ -2,6 +2,7 @@
 file:       dslabs_functions.py
 version:    2023.1
 '''
+import time
 from math import pi, sin, cos
 from itertools import product
 from datetime import datetime
@@ -119,7 +120,7 @@ def plot_multiline_chart(xvalues: list, yvalues: dict, ax: Axes = None, title: s
     if ax is None:
         ax = gca()
     ax = set_chart_labels(ax=ax, title=title, xlabel=xlabel, ylabel=ylabel)
-    ax = set_chart_xticks(xvalues, ax=ax, percentage=percentage)
+    # ax = set_chart_xticks(xvalues, ax=ax, percentage=percentage)
     legend: list = []
     for name, y in yvalues.items():
         ax.plot(xvalues, y)
@@ -156,11 +157,12 @@ def plot_multibar_chart(group_labels: list, yvalues: dict, ax: Axes = None, titl
 def plot_multi_scatters_chart(data: DataFrame, var1: str, var2: str, var3: str = None, ax: Axes = None):
     if ax is None:
         ax = gca()
-
+    print("ENTER " + str(time.time()))
     title = f'{var1} x {var2}'
     if var3 is not None:
         title += f' per {var3}'
         values = data[var3].unique().tolist()
+
         if len(values) > 2:
             chart = ax.scatter(data[var1], data[var2], c=data[var3])
             cbar = gcf().colorbar(chart)
@@ -175,7 +177,10 @@ def plot_multi_scatters_chart(data: DataFrame, var1: str, var2: str, var3: str =
             ax.legend(fontsize='xx-small')
     else:
         ax.scatter(data[var1], data[var2], color=FILL_COLOR)
+        print("SCATTER DONE " + str(time.time()))
     ax = set_chart_labels(ax=ax, title=title, xlabel=var1, ylabel=var2)
+    print("LABELS SET " + str(time.time()))
+    print(ax)
     return ax
 
 
