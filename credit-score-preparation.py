@@ -83,17 +83,18 @@ no_nans[['NumofLoan', 'Type_of_Loan']].head(15)
 import re
 
 def convert_age_to_months(age):
-    list_of_numbers = re.findall(r'\b\d+\b', age)
-    if (len(list_of_numbers) != 2):
-        print(list_of_numbers)
-        raise Exception('Incorrect age input')
-    years, months = int(list_of_numbers[0]), int(list_of_numbers[1])
-    total_months = years * 12 + months
-    return total_months
+    if isinstance(age, str):
+        list_of_numbers = re.findall(r'\b\d+\b', age)
+        if (len(list_of_numbers) != 2):
+            print(list_of_numbers)
+            raise Exception('Incorrect age input')
+        years, months = int(list_of_numbers[0]), int(list_of_numbers[1])
+        total_months = years * 12 + months
+        return total_months
+    return 0
 
-no_nans['Credit_History_Age_Months'] = no_nans.apply(lambda row: convert_age_to_months(row['Credit_History_Age']), axis='columns', result_type='expand')
-
-no_nans[['Credit_History_Age', 'Credit_History_Age_Months']].head()
+data['Credit_History_Age_Months'] = data.apply(lambda row: convert_age_to_months(row['Credit_History_Age']), axis='columns', result_type='expand')
+data = data.drop(columns=["Credit_History_Age"])
 
 
 payment_behaviour_enc: dict[str, int] = {"High_spent_Small_value_payments": 10, "Low_spent_Large_value_payments": 2, 
@@ -102,6 +103,23 @@ payment_behaviour_enc: dict[str, int] = {"High_spent_Small_value_payments": 10, 
 
 
 credit_mix_enc: dict[str, int] = {"Good": 2, "Standard": 1, "Bad": 0}
+
+credit_score_enc: dict[str, int] = {"Good": 1, "Poor": 0}
+
+payment_min_amount_enc: dict[str, int] = {"Yes": 2, "NM": 1, "No": 0}
+
+month_val: dict[str, float] = {
+    "January": 0,
+    "February": pi / 4,
+    "March": 2 * pi / 4,
+    "April": 3 * pi / 4,
+    "May": pi,
+    "June": - 3 * pi / 4,
+    "July": - 2 * pi / 4,
+    "August": - pi / 4
+}
+
+print(month_val)
 
 def dummify(df: DataFrame, vars_to_dummify: list[str]) -> DataFrame:
     other_vars: list[str] = [c for c in df.columns if not c in vars_to_dummify]
@@ -119,7 +137,10 @@ def dummify(df: DataFrame, vars_to_dummify: list[str]) -> DataFrame:
 
 encoding: dict[str, dict[str, int]] = {
     "Payment_Behaviour": payment_behaviour_enc,
-    "CreditMix": credit_mix_enc
+    "CreditMix": credit_mix_enc,
+    "Month": month_val,
+    "Credit_Score": credit_score_enc,
+    "Payment_of_Min_Amount": payment_min_amount_enc
 }
 
 data = data.replace(encoding, inplace=False)
@@ -127,5 +148,19 @@ data = data.replace(encoding, inplace=False)
 vars = ["Occupation"]
 data = dummify(data, vars)
 
+data['Customer_ID'] = data.apply(lambda row: int(row['Customer_ID'].replace('CUS_', ''), 16), axis='columns', result_type='expand')
 
-print(data.head())
+
+
+def encode_cyclic_variables(data: DataFrame, vars: list[str]):
+    _data = data
+    for v in vars:
+        x_max: float = max(data[v])
+        _data[v + "_sin"] = data[v].apply(lambda x: round(sin(2 * pi * x / x_max), 5))
+        _data[v + "_cos"] = data[v].apply(lambda x: round(cos(2 * pi * x / x_max), 5))
+    return _data
+
+
+data = encode_cyclic_variables(data, ["Month"])
+
+print(data)
