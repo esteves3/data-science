@@ -1,7 +1,3 @@
-# %% [markdown]
-# ## Setup
-
-# %%
 from dslabs_functions import get_variable_types
 from seaborn import heatmap
 from dslabs_functions import HEIGHT, plot_multi_scatters_chart
@@ -18,6 +14,7 @@ from pandas import Series
 from scipy.stats import norm, expon, lognorm
 from matplotlib.axes import Axes
 from dslabs_functions import plot_multiline_chart
+import math
 
 # %%
 filename = "datasets/class_credit_score.csv"
@@ -31,12 +28,6 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 pd.set_option("display.max_colwidth", 200)
 
-# %% [markdown]
-# ## Data Preparation
-
-# %% [markdown]
-# ### Cleaning
-
 # %%
 # Remove non-digits from age column
 data['Age'] = data['Age'].str.replace(r'[^0-9]+', '', regex=True)
@@ -48,16 +39,17 @@ data = data.drop(columns=['Name'])
 data['SSN'] = data['SSN'].str.slice(stop=3)
 data = data.rename(columns = {'SSN': 'SSN_Area_Code'})
 
-data
 
 # %%
 def process_loan_type_entry(entry):
-    loan_types_split = []
-    type_list = entry.replace(' and ', ' ')
-    type_list = type_list.split(', ')
-    for loan_type in type_list:
-        loan_types_split.append('Loan_Type_' + loan_type.strip().replace(' ', '_').replace('-', '_'))
-    return loan_types_split
+    if not isinstance(entry, float):
+        loan_types_split = []
+        type_list = entry.replace(' and ', ' ')
+        type_list = type_list.split(', ')
+        for loan_type in type_list:
+            loan_types_split.append('Loan_Type_' + loan_type.strip().replace(' ', '_').replace('-', '_'))
+        return loan_types_split
+    return []
 
 # Split loan types and reformat the strings
 
@@ -73,89 +65,102 @@ loan_types_columns = set(loan_types)
 loan_types_columns = list(loan_types_columns)
 print(loan_types_columns)
 
-
-# Create columns and add to dataframe
-
 def columns_count_occurrences(column_names, list_to_count):
+
     column_values = dict.fromkeys(column_names, 0)
     for item in list_to_count:
         column_values[item] += 1
     return column_values
 
 
-no_nans[loan_types_columns] = no_nans.apply(lambda row: columns_count_occurrences(loan_types_columns, process_loan_type_entry(row['Type_of_Loan'])), axis='columns', result_type='expand')
+data[loan_types_columns] = data.apply(lambda row: columns_count_occurrences(loan_types_columns, process_loan_type_entry(row['Type_of_Loan'])), axis='columns', result_type='expand')
 
 no_nans.head(7)
 
-# %%
-# Can we drop "num of loan"?
-
 no_nans[['NumofLoan', 'Type_of_Loan']].head(15)
 
-# %%
-# Convert credit history to months
 
 import re
 
 def convert_age_to_months(age):
-    list_of_numbers = re.findall(r'\b\d+\b', age)
-    if (len(list_of_numbers) != 2):
-        print(list_of_numbers)
-        raise Exception('Incorrect age input')
-    years, months = int(list_of_numbers[0]), int(list_of_numbers[1])
-    total_months = years * 12 + months
-    return total_months
+    if isinstance(age, str):
+        list_of_numbers = re.findall(r'\b\d+\b', age)
+        if (len(list_of_numbers) != 2):
+            print(list_of_numbers)
+            raise Exception('Incorrect age input')
+        years, months = int(list_of_numbers[0]), int(list_of_numbers[1])
+        total_months = years * 12 + months
+        return total_months
+    return 0
 
-no_nans['Credit_History_Age_Months'] = no_nans.apply(lambda row: convert_age_to_months(row['Credit_History_Age']), axis='columns', result_type='expand')
-
-no_nans[['Credit_History_Age', 'Credit_History_Age_Months']].head()
-
-# %%
-# Split payment behaviour and one-hot-encode
-
-print(data['Payment_Behaviour'].unique())
-
-# %% [markdown]
-# ### Variables encoding
-# 
-# The list of variables under each one of the transformations, shall be presented. If not applied explain the reason for that, based on data characteristics.
-
-# %%
-print(get_variable_types(data)['symbolic'])
-for var in get_variable_types(data)['symbolic']:
-    print(var + ':')
-    print(data[var].describe())
-    print(data[var].unique())
-    print()
-
-# %% [markdown]
-# ### Missing value imputation
-
-# %%
+data['Credit_History_Age_Months'] = data.apply(lambda row: convert_age_to_months(row['Credit_History_Age']), axis='columns', result_type='expand')
+data = data.drop(columns=["Credit_History_Age"])
 
 
-# %% [markdown]
-# ### Outliers treatment
-
-# %%
-
-
-# %% [markdown]
-# ### Scaling
-
-# %%
+payment_behaviour_enc: dict[str, int] = {"High_spent_Small_value_payments": 10, "Low_spent_Large_value_payments": 2, 
+                                         "Low_spent_Medium_value_payments": 1, "Low_spent_Small_value_payments": 0,
+                                         "High_spent_Medium_value_payments": 11, "High_spent_Large_value_payments": 12}
 
 
-# %% [markdown]
-# ### Balancing
+credit_mix_enc: dict[str, int] = {"Good": 2, "Standard": 1, "Bad": 0}
 
-# %%
+credit_score_enc: dict[str, int] = {"Good": 1, "Poor": 0}
+
+payment_min_amount_enc: dict[str, int] = {"Yes": 2, "NM": 1, "No": 0}
+
+month_val: dict[str, float] = {
+    "January": 0,
+    "February": pi / 4,
+    "March": 2 * pi / 4,
+    "April": 3 * pi / 4,
+    "May": pi,
+    "June": - 3 * pi / 4,
+    "July": - 2 * pi / 4,
+    "August": - pi / 4
+}
+
+print(month_val)
+
+def dummify(df: DataFrame, vars_to_dummify: list[str]) -> DataFrame:
+    other_vars: list[str] = [c for c in df.columns if not c in vars_to_dummify]
+
+    enc = OneHotEncoder(
+        handle_unknown="ignore", sparse_output=False, dtype="bool", drop="if_binary"
+    )
+    trans: ndarray = enc.fit_transform(df[vars_to_dummify])
+
+    new_vars: ndarray = enc.get_feature_names_out(vars_to_dummify)
+    dummy = DataFrame(trans, columns=new_vars, index=df.index)
+
+    final_df: DataFrame = concat([df[other_vars], dummy], axis=1)
+    return final_df
+
+encoding: dict[str, dict[str, int]] = {
+    "Payment_Behaviour": payment_behaviour_enc,
+    "CreditMix": credit_mix_enc,
+    "Month": month_val,
+    "Credit_Score": credit_score_enc,
+    "Payment_of_Min_Amount": payment_min_amount_enc
+}
+
+data = data.replace(encoding, inplace=False)
+
+vars = ["Occupation"]
+data = dummify(data, vars)
+
+data['Customer_ID'] = data.apply(lambda row: int(row['Customer_ID'].replace('CUS_', ''), 16), axis='columns', result_type='expand')
 
 
-# %% [markdown]
-# ### Feature selection
 
-# %%
+def encode_cyclic_variables(data: DataFrame, vars: list[str]):
+    _data = data
+    for v in vars:
+        x_max: float = max(data[v])
+        _data[v + "_sin"] = data[v].apply(lambda x: round(sin(2 * pi * x / x_max), 5))
+        _data[v + "_cos"] = data[v].apply(lambda x: round(cos(2 * pi * x / x_max), 5))
+    return _data
 
 
+data = encode_cyclic_variables(data, ["Month"])
 
+print(data)
