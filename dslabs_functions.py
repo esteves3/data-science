@@ -800,7 +800,7 @@ def plot_evaluation_results(
 # ---------------------------------------
 
 
-from statsmodels.tsa.seasonal import DecomposeResult, seasonal_decompose
+'''from statsmodels.tsa.seasonal import DecomposeResult, seasonal_decompose
 
 
 def plot_ts_multivariate_chart(data: DataFrame, title: str) -> list[Axes]:
@@ -862,3 +862,4 @@ def ts_aggregation_by(
     df.index = df.index.to_timestamp()
 
     return df
+'''
