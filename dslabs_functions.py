@@ -648,7 +648,8 @@ def run_NB(trnX, trnY, tstX, tstY, metric: str = "accuracy") -> dict[str, float]
         "GaussianNB": GaussianNB(),
         "BernoulliNB": BernoulliNB(),
     }
-    if (trnX < 0).any().any() or (tstX < 0).any().any():        
+    add_multinomial = not (trnX < 0).any().any() and not (tstX < 0).any().any()
+    if add_multinomial:        
         estimators["MultinomialNB"] = MultinomialNB()
     best_model: GaussianNB | MultinomialNB | BernoulliNB = None  # type: ignore
     best_performance: float = 0.0
