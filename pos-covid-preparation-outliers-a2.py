@@ -322,7 +322,93 @@ plt.savefig(f"images/{file_tag}_eval.png")
 plt.show()
 
 
-# In[ ]:
+# # Balancing
+
+# ## Approach 1
+# 
+# Undersampling
+
+# In[68]:
+
+
+df_positives: Series = df[df[target] == 1]
+df_negatives: Series = df[df[target] == 0]
+
+df_neg_sample: DataFrame = DataFrame(df_negatives.sample(len(df_positives)))
+df_under: DataFrame = pd.concat([df_positives, df_neg_sample], axis=0)
+
+print("Minority class=", positive_class, ":", len(df_positives))
+print("Majority class=", negative_class, ":", len(df_neg_sample))
+print("Proportion:", round(len(df_positives) / len(df_neg_sample), 2), ": 1")
+
+
+# In[71]:
+
+
+evaluate_approach_and_graph(df_under, file_tag="class_pos_covid_Balancing_A1")
+
+
+# ## Approach 2
+# 
+# Oversampling by replication
+
+# In[69]:
+
+
+df_positives: Series = df[df[target] == 1]
+df_negatives: Series = df[df[target] == 0]
+df_pos_sample: DataFrame = DataFrame(
+    df_positives.sample(len(df_negatives), replace=True)
+)
+df_over: DataFrame = pd.concat([df_pos_sample, df_negatives], axis=0)
+
+print("Minority class=", positive_class, ":", len(df_pos_sample))
+print("Majority class=", negative_class, ":", len(df_negatives))
+print("Proportion:", round(len(df_pos_sample) / len(df_negatives), 2), ": 1")
+
+
+# In[72]:
+
+
+evaluate_approach_and_graph(df_over, file_tag="class_pos_covid_Balancing_A2")
+
+
+# ## Approach 3
+# 
+# Oversampling by SMOTE
+
+# In[70]:
+
+
+target = "CovidPos"
+
+df_positives: Series = df[df[target] == 1]
+df_negatives: Series = df[df[target] == 0]
+RANDOM_STATE = 42
+
+smote: SMOTE = SMOTE(sampling_strategy="minority", random_state=RANDOM_STATE)
+y = df.pop(target).values
+X: np.ndarray = df.values
+smote_X, smote_y = smote.fit_resample(X, y)
+df_smote: DataFrame = pd.concat([DataFrame(smote_X), DataFrame(smote_y)], axis=1)
+df_smote.columns = list(df.columns) + [target]
+
+smote_target_count: Series = Series(smote_y).value_counts()
+print("Minority class=", positive_class, ":", smote_target_count[positive_class])
+print("Majority class=", negative_class, ":", smote_target_count[negative_class])
+print(
+    "Proportion:",
+    round(smote_target_count[positive_class] / smote_target_count[negative_class], 2),
+    ": 1",
+)
+print(df_smote.shape)
+
+
+# In[73]:
+
+
+evaluate_approach_and_graph(df_smote, file_tag="class_pos_covid_Balancing_A3")
+
 
 
 
