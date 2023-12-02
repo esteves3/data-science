@@ -525,23 +525,29 @@ def study_variance_for_feature_selection(
 
         train_copy: DataFrame = train.drop(vars2drop, axis=1, inplace=False)
         test_copy: DataFrame = test.drop(vars2drop, axis=1, inplace=False)
-        eval: dict[str, list] | None = evaluate_approach(
-            train_copy, test_copy, target=target, metric=metric
-        )
+
+        try:
+            eval: dict[str, list] | None = evaluate_approach(
+                train_copy, test_copy, target=target, metric=metric
+            )
+        except:
+            break
         if eval is not None:
             results["NB"].append(eval[metric][0])
             results["KNN"].append(eval[metric][1])
-
-    plot_multiline_chart(
-        options,
-        results,
-        title=f"{file_tag} variance study ({metric})",
-        xlabel="variance threshold",
-        ylabel=metric,
-        percentage=True,
-    )
-    savefig(f"images/{file_tag}_fs_low_var_{metric}_study.png")
-    return results
+    try:
+        plot_multiline_chart(
+            options,
+            results,
+            title=f"{file_tag} variance study ({metric})",
+            xlabel="variance threshold",
+            ylabel=metric,
+            percentage=True,
+        )
+        savefig(f"images/{file_tag}_fs_low_var_{metric}_study.png")
+    except:
+        pass
+    return results, options
 
 
 def select_redundant_variables(
@@ -593,23 +599,30 @@ def study_redundancy_for_feature_selection(
 
         train_copy: DataFrame = train.drop(vars2drop, axis=1, inplace=False)
         test_copy: DataFrame = test.drop(vars2drop, axis=1, inplace=False)
-        eval: dict | None = evaluate_approach(
-            train_copy, test_copy, target=target, metric=metric
-        )
+        
+        try:
+            eval: dict | None = evaluate_approach(
+                train_copy, test_copy, target=target, metric=metric
+            )
+        except:
+            break
         if eval is not None:
             results["NB"].append(eval[metric][0])
             results["KNN"].append(eval[metric][1])
 
-    plot_multiline_chart(
-        options,
-        results,
-        title=f"{file_tag} redundancy study ({metric})",
-        xlabel="correlation threshold",
-        ylabel=metric,
-        percentage=True,
-    )
-    savefig(f"images/{file_tag}_fs_redundancy_{metric}_study.png")
-    return results
+    try:
+        plot_multiline_chart(
+            options,
+            results,
+            title=f"{file_tag} redundancy study ({metric})",
+            xlabel="correlation threshold",
+            ylabel=metric,
+            percentage=True,
+        )
+        savefig(f"images/{file_tag}_fs_redundancy_{metric}_study.png")
+    except:
+        pass
+    return results, options
 
 
 def apply_feature_selection(
