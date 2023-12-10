@@ -1,0 +1,23 @@
+STEM (Science, Technology, Engineering, and Medicine): 0
+Scientist 0
+Doctor 1
+Engineer 2
+Developer 3
+Mechanic 4
+
+Arts and Design: 1
+Musician 0
+Writer 1
+Architect 2
+Teacher 3
+
+Law and Media: 2
+Lawyer 0
+Media Manager 1
+Journalist 2
+
+
+Business and Entrepreneurship: 3
+Entrepreneur 0
+Manager 1
+Accountant 2
