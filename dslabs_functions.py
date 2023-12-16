@@ -3,7 +3,7 @@ file:       dslabs_functions.py
 version:    2023.1
 author:     Claudia Antunes
 """
-from math import pi, sin, cos, ceil
+from math import pi, sin, cos, ceil, sqrt
 from itertools import product
 from datetime import datetime
 from typing import Callable
@@ -14,7 +14,7 @@ from matplotlib.container import BarContainer
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.axes import Axes
-from matplotlib.pyplot import gca, gcf, savefig, subplots
+from matplotlib.pyplot import gca, gcf, savefig, subplots, text
 from matplotlib.dates import AutoDateLocator, AutoDateFormatter
 
 # from matplotlib.dates import _reset_epoch_test_example, set_epoch
@@ -29,7 +29,16 @@ from sklearn.metrics import confusion_matrix, RocCurveDisplay, roc_auc_score
 from sklearn.naive_bayes import _BaseNB, GaussianNB, MultinomialNB, BernoulliNB
 from sklearn.neighbors import KNeighborsClassifier
 
-from config import ACTIVE_COLORS, LINE_COLOR, FILL_COLOR, cmap_blues
+from config import (
+    ACTIVE_COLORS,
+    LINE_COLOR,
+    FILL_COLOR,
+    cmap_blues,
+)
+
+PAST_COLOR = "#199ED5"
+FUTURE_COLOR = "#D077AC"
+PRED_FUTURE_COLOR = "#FF0000"
 
 NR_COLUMNS: int = 3
 HEIGHT: int = 4
@@ -61,18 +70,14 @@ def define_grid(nr_vars, vars_per_row: int = NR_COLUMNS) -> tuple[int, int]:
     return nr_rows, vars_per_row
 
 
-def set_chart_labels(
-    ax: Axes, title: str = "", xlabel: str = "", ylabel: str = ""
-) -> Axes:
+def set_chart_labels(ax: Axes, title: str = "", xlabel: str = "", ylabel: str = "") -> Axes:
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     return ax
 
 
-def set_chart_xticks(
-    xvalues: list[str | int | float | datetime], ax: Axes, percentage: bool = False
-) -> Axes:
+def set_chart_xticks(xvalues: list[str | int | float | datetime], ax: Axes, percentage: bool = False) -> Axes:
     if len(xvalues) > 0:
         if percentage:
             ax.set_ylim(0.0, 1.0)
@@ -80,9 +85,7 @@ def set_chart_xticks(
         if isinstance(xvalues[0], datetime):
             locator = AutoDateLocator()
             ax.xaxis.set_major_locator(locator)
-            ax.xaxis.set_major_formatter(
-                AutoDateFormatter(locator, defaultfmt="%Y-%m-%d")
-            )
+            ax.xaxis.set_major_formatter(AutoDateFormatter(locator, defaultfmt="%Y-%m-%d"))
         rotation: int = 0
         if not any(not isinstance(x, (int, float)) for x in xvalues):
             ax.set_xlim(left=xvalues[0], right=xvalues[-1])
@@ -110,6 +113,8 @@ def plot_line_chart(
         ax = gca()
     ax = set_chart_labels(ax=ax, title=title, xlabel=xlabel, ylabel=ylabel)
     ax = set_chart_xticks(xvalues, ax, percentage=percentage)
+    if any(y < 0 for y in yvalues) and percentage:
+            ax.set_ylim(-1.0, 1.0)
     ax.plot(xvalues, yvalues, c=LINE_COLOR, label=name)
     if show_stdev:
         stdev: float = round(std(yvalues), 3)
@@ -180,9 +185,7 @@ def plot_horizontal_bar_chart(
     ax = set_chart_labels(ax=ax, title=title, xlabel=xlabel, ylabel=ylabel)
     y_pos: list = list(arange(len(elements)))
 
-    ax.barh(
-        y_pos, values, xerr=error, align="center", error_kw={"lw": 0.5, "ecolor": "r"}
-    )
+    ax.barh(y_pos, values, xerr=error, align="center", error_kw={"lw": 0.5, "ecolor": "r"})
     ax.set_yticks(y_pos, labels=elements)
     ax.invert_yaxis()  # labels read top-to-bottom
     return ax
@@ -205,6 +208,8 @@ def plot_multiline_chart(
     for name, y in yvalues.items():
         ax.plot(xvalues, y)
         legend.append(name)
+        if any(v < 0 for v in y) and percentage:
+            ax.set_ylim(-1.0, 1.0)
     ax.legend(legend, fontsize="xx-small")
     return ax
 
@@ -231,14 +236,17 @@ def plot_multibar_chart(
     ax.set_xticks(index + bar_width / 2, labels=group_labels)
 
     for i in range(len(bar_labels)):
+        bar_yvalues = yvalues[bar_labels[i]]
         values: BarContainer = ax.bar(
             index + i * bar_width,
-            yvalues[bar_labels[i]],
+            bar_yvalues,
             width=bar_width,
             label=bar_labels[i],
         )
         format = "%.2f" if percentage else "%.0f"
         ax.bar_label(values, fmt=format, fontproperties=FONT_TEXT)
+        if any(y < 0 for y in bar_yvalues) and percentage:
+            ax.set_ylim(-1.0, 1.0)
     ax.legend(fontsize="xx-small")
     return ax
 
@@ -253,9 +261,7 @@ def plot_multi_scatters_chart(
     if var3 != "":
         title += f"per {var3}"
         if is_any_real_numeric_dtype(data[var3]) and not is_integer_dtype(data[var3]):
-            chart: PathCollection = ax.scatter(
-                data[var1], data[var2], c=data[var3].to_list()
-            )
+            chart: PathCollection = ax.scatter(data[var1], data[var2], c=data[var3].to_list())
             cbar: Colorbar = gcf().colorbar(chart)
             cbar.outline.set_visible(False)  # type: ignore
             cbar.set_label(var3, loc="top")
@@ -264,9 +270,7 @@ def plot_multi_scatters_chart(
             values.sort()
             for i in range(len(values)):
                 subset: DataFrame = data[data[var3] == values[i]]
-                ax.scatter(
-                    subset[var1], subset[var2], color=ACTIVE_COLORS[i], label=values[i]
-                )
+                ax.scatter(subset[var1], subset[var2], color=ACTIVE_COLORS[i], label=values[i])
             ax.legend(fontsize="xx-small")
     else:
         ax.scatter(data[var1], data[var2], color=FILL_COLOR)
@@ -331,19 +335,11 @@ def count_outliers(
     for var in numeric:
         top: float
         bottom: float
-        top, bottom = determine_outlier_thresholds_for_var(
-            summary5[var], std_based=True, threshold=nrstdev
-        )
-        outliers_stdev += [
-            data[data[var] > top].count()[var] + data[data[var] < bottom].count()[var]
-        ]
+        top, bottom = determine_outlier_thresholds_for_var(summary5[var], std_based=True, threshold=nrstdev)
+        outliers_stdev += [data[data[var] > top].count()[var] + data[data[var] < bottom].count()[var]]
 
-        top, bottom = determine_outlier_thresholds_for_var(
-            summary5[var], std_based=False, threshold=iqrfactor
-        )
-        outliers_iqr += [
-            data[data[var] > top].count()[var] + data[data[var] < bottom].count()[var]
-        ]
+        top, bottom = determine_outlier_thresholds_for_var(summary5[var], std_based=False, threshold=iqrfactor)
+        outliers_iqr += [data[data[var] > top].count()[var] + data[data[var] < bottom].count()[var]]
 
     return {"iqr": outliers_iqr, "stdev": outliers_stdev}
 
@@ -378,9 +374,7 @@ def analyse_date_granularity(data: DataFrame, var: str, levels: list[str]) -> nd
     return axs
 
 
-def analyse_property_granularity(
-    data: DataFrame, property: str, vars: list[str]
-) -> ndarray:
+def analyse_property_granularity(data: DataFrame, property: str, vars: list[str]) -> ndarray:
     cols: int = len(vars)
     fig: Figure
     axs: ndarray
@@ -416,9 +410,7 @@ def encode_cyclic_variables(data: DataFrame, vars: list[str]) -> None:
 def dummify(df: DataFrame, vars_to_dummify: list[str]) -> DataFrame:
     other_vars: list[str] = [c for c in df.columns if not c in vars_to_dummify]
 
-    enc = OneHotEncoder(
-        handle_unknown="ignore", sparse_output=False, dtype="bool", drop="if_binary"
-    )
+    enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False, dtype="bool", drop="if_binary")
     trans: ndarray = enc.fit_transform(df[vars_to_dummify])
 
     new_vars: ndarray = enc.get_feature_names_out(vars_to_dummify)
@@ -428,9 +420,7 @@ def dummify(df: DataFrame, vars_to_dummify: list[str]) -> DataFrame:
     return final_df
 
 
-def mvi_by_dropping(
-    data: DataFrame, min_pct_per_variable: float = 0.1, min_pct_per_record: float = 0.0
-) -> DataFrame:
+def mvi_by_dropping(data: DataFrame, min_pct_per_variable: float = 0.1, min_pct_per_record: float = 0.0) -> DataFrame:
     """
     data: DataFrame - the data to clean
     min_pct_per_variable: float - the minimum percentage of records a variable has to show in order to be kept
@@ -438,9 +428,7 @@ def mvi_by_dropping(
     return the data modified
     """
     # Deleting variables
-    df: DataFrame = data.dropna(
-        axis=1, thresh=data.shape[0] * min_pct_per_variable, inplace=False
-    )
+    df: DataFrame = data.dropna(axis=1, thresh=data.shape[0] * min_pct_per_variable, inplace=False)
     # Deleting records
     df.dropna(axis=0, thresh=data.shape[1] * min_pct_per_record, inplace=True)
 
@@ -492,13 +480,9 @@ def mvi_by_filling(data: DataFrame, strategy: str = "frequent") -> DataFrame:
     return df
 
 
-def select_low_variance_variables(
-    data: DataFrame, max_threshold: float, target: str = "class"
-) -> list:
+def select_low_variance_variables(data: DataFrame, max_threshold: float, target: str = "class") -> list:
     summary5: DataFrame = data.describe()
-    vars2drop: Index[str] = summary5.columns[
-        summary5.loc["std"] * summary5.loc["std"] < max_threshold
-    ]
+    vars2drop: Index[str] = summary5.columns[summary5.loc["std"] * summary5.loc["std"] < max_threshold]
     vars2drop = vars2drop.drop(target) if target in vars2drop else vars2drop
     return list(vars2drop.values)
 
@@ -512,47 +496,33 @@ def study_variance_for_feature_selection(
     metric: str = "accuracy",
     file_tag: str = "",
 ) -> dict:
-    options: list[float] = [
-        round(i * lag, 3) for i in range(1, ceil(max_threshold / lag + lag))
-    ]
+    options: list[float] = [round(i * lag, 3) for i in range(1, ceil(max_threshold / lag + lag))]
     results: dict[str, list] = {"NB": [], "KNN": []}
     summary5: DataFrame = train.describe()
     for thresh in options:
-        vars2drop: Index[str] = summary5.columns[
-            summary5.loc["std"] * summary5.loc["std"] < thresh
-        ]
+        vars2drop: Index[str] = summary5.columns[summary5.loc["std"] * summary5.loc["std"] < thresh]
         vars2drop = vars2drop.drop(target) if target in vars2drop else vars2drop
 
         train_copy: DataFrame = train.drop(vars2drop, axis=1, inplace=False)
         test_copy: DataFrame = test.drop(vars2drop, axis=1, inplace=False)
-
-        try:
-            eval: dict[str, list] | None = evaluate_approach(
-                train_copy, test_copy, target=target, metric=metric
-            )
-        except:
-            break
+        eval: dict[str, list] | None = evaluate_approach(train_copy, test_copy, target=target, metric=metric)
         if eval is not None:
             results["NB"].append(eval[metric][0])
             results["KNN"].append(eval[metric][1])
-    try:
-        plot_multiline_chart(
-            options,
-            results,
-            title=f"{file_tag} variance study ({metric})",
-            xlabel="variance threshold",
-            ylabel=metric,
-            percentage=True,
-        )
-        savefig(f"images/{file_tag}_fs_low_var_{metric}_study.png")
-    except:
-        pass
-    return results, options
+
+    plot_multiline_chart(
+        options,
+        results,
+        title=f"{file_tag} variance study ({metric})",
+        xlabel="variance threshold",
+        ylabel=metric,
+        percentage=True,
+    )
+    savefig(f"images/{file_tag}_fs_low_var_{metric}_study.png")
+    return results
 
 
-def select_redundant_variables(
-    data: DataFrame, min_threshold: float = 0.90, target: str = "class"
-) -> list:
+def select_redundant_variables(data: DataFrame, min_threshold: float = 0.90, target: str = "class") -> list:
     df: DataFrame = data.drop(target, axis=1, inplace=False)
     corr_matrix: DataFrame = abs(df.corr())
     variables: Index[str] = corr_matrix.columns
@@ -577,10 +547,7 @@ def study_redundancy_for_feature_selection(
     metric: str = "accuracy",
     file_tag: str = "",
 ) -> dict:
-    options: list[float] = [
-        round(min_threshold + i * lag, 3)
-        for i in range(ceil((1 - min_threshold) / lag) + 1)
-    ]
+    options: list[float] = [round(min_threshold + i * lag, 3) for i in range(ceil((1 - min_threshold) / lag) + 1)]
 
     df: DataFrame = train.drop(target, axis=1, inplace=False)
     corr_matrix: DataFrame = abs(df.corr())
@@ -599,30 +566,21 @@ def study_redundancy_for_feature_selection(
 
         train_copy: DataFrame = train.drop(vars2drop, axis=1, inplace=False)
         test_copy: DataFrame = test.drop(vars2drop, axis=1, inplace=False)
-        
-        try:
-            eval: dict | None = evaluate_approach(
-                train_copy, test_copy, target=target, metric=metric
-            )
-        except:
-            break
+        eval: dict | None = evaluate_approach(train_copy, test_copy, target=target, metric=metric)
         if eval is not None:
             results["NB"].append(eval[metric][0])
             results["KNN"].append(eval[metric][1])
 
-    try:
-        plot_multiline_chart(
-            options,
-            results,
-            title=f"{file_tag} redundancy study ({metric})",
-            xlabel="correlation threshold",
-            ylabel=metric,
-            percentage=True,
-        )
-        savefig(f"images/{file_tag}_fs_redundancy_{metric}_study.png")
-    except:
-        pass
-    return results, options
+    plot_multiline_chart(
+        options,
+        results,
+        title=f"{file_tag} redundancy study ({metric})",
+        xlabel="correlation threshold",
+        ylabel=metric,
+        percentage=True,
+    )
+    savefig(f"images/{file_tag}_fs_redundancy_{metric}_study.png")
+    return results
 
 
 def apply_feature_selection(
@@ -659,11 +617,9 @@ CLASS_EVAL_METRICS: dict[str, Callable] = {
 def run_NB(trnX, trnY, tstX, tstY, metric: str = "accuracy") -> dict[str, float]:
     estimators: dict[str, GaussianNB | MultinomialNB | BernoulliNB] = {
         "GaussianNB": GaussianNB(),
+        "MultinomialNB": MultinomialNB(),
         "BernoulliNB": BernoulliNB(),
     }
-    add_multinomial = not (trnX < 0).any().any() and not (tstX < 0).any().any()
-    if add_multinomial:        
-        estimators["MultinomialNB"] = MultinomialNB()
     best_model: GaussianNB | MultinomialNB | BernoulliNB = None  # type: ignore
     best_performance: float = 0.0
     eval: dict[str, float] = {}
@@ -750,9 +706,7 @@ def plot_confusion_matrix(cnf_matrix: ndarray, classes_names: ndarray, ax: Axes 
     ax.imshow(cnf_matrix, interpolation="nearest", cmap=cmap_blues)
 
     for i, j in product(range(cnf_matrix.shape[0]), range(cnf_matrix.shape[1])):
-        ax.text(
-            j, i, format(cnf_matrix[i, j], "d"), color="y", horizontalalignment="center"
-        )
+        ax.text(j, i, format(cnf_matrix[i, j], "d"), color="y", horizontalalignment="center")
     return ax
 
 
@@ -788,9 +742,7 @@ def plot_roc_chart(tstY: ndarray, predictions: dict, ax: Axes = None, target: st
     return ax
 
 
-def plot_evaluation_results(
-    model, trn_y, prd_trn, tst_y, prd_tst, labels: ndarray
-) -> ndarray:
+def plot_evaluation_results(model, trn_y, prd_trn, tst_y, prd_tst, labels: ndarray) -> ndarray:
     evaluation: dict = {}
     for key in CLASS_EVAL_METRICS:
         evaluation[key] = [
@@ -815,15 +767,13 @@ def plot_evaluation_results(
 # ---------------------------------------
 
 
-'''from statsmodels.tsa.seasonal import DecomposeResult, seasonal_decompose
+from statsmodels.tsa.seasonal import DecomposeResult, seasonal_decompose
 
 
 def plot_ts_multivariate_chart(data: DataFrame, title: str) -> list[Axes]:
     fig: Figure
     axs: list[Axes]
-    fig, axs = subplots(
-        data.shape[1], 1, figsize=(3 * HEIGHT, HEIGHT / 2 * data.shape[1])
-    )
+    fig, axs = subplots(data.shape[1], 1, figsize=(3 * HEIGHT, HEIGHT / 2 * data.shape[1]))
     fig.suptitle(title)
 
     for i in range(data.shape[1]):
@@ -865,6 +815,11 @@ def plot_components(
     return axs
 
 
+# ---------------------------------------
+#       TIME SERIES TRANSFORMATION
+# ---------------------------------------
+
+
 def ts_aggregation_by(
     data: Series | DataFrame,
     gran_level: str = "D",
@@ -877,4 +832,73 @@ def ts_aggregation_by(
     df.index = df.index.to_timestamp()
 
     return df
-'''
+
+
+def series_train_test_split(data: Series, trn_pct: float = 0.90) -> tuple[Series, Series]:
+    trn_size: int = int(len(data) * trn_pct)
+    df_cp: Series = data.copy()
+    train: Series = df_cp.iloc[:trn_size, 0]
+    test: Series = df_cp.iloc[trn_size:, 0]
+    return train, test
+
+def dataframe_temporal_train_test_split(data: DataFrame, trn_pct: float = 0.90) -> tuple[DataFrame, DataFrame]:
+    trn_size: int = int(len(data) * trn_pct)
+    df_cp: DataFrame = data.copy()
+    train: DataFrame = df_cp.iloc[:trn_size]
+    test: DataFrame = df_cp.iloc[trn_size:]
+    return train, test
+
+
+# ---------------------------------------
+#             FORECASTING
+# ---------------------------------------
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, r2_score
+
+
+FORECAST_MEASURES = {
+    "MSE": mean_squared_error,
+    "MAE": mean_absolute_error,
+    "R2": r2_score,
+    "MAPE": mean_absolute_percentage_error,
+}
+
+
+def plot_forecasting_series(
+    trn: Series,
+    tst: Series,
+    prd_tst: Series,
+    title: str = "",
+    xlabel: str = "time",
+    ylabel: str = "",
+) -> list[Axes]:
+    fig, ax = subplots(1, 1, figsize=(4 * HEIGHT, HEIGHT), squeeze=True)
+    fig.suptitle(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.plot(trn.index, trn.values, label="train", color=PAST_COLOR)
+    ax.plot(tst.index, tst.values, label="test", color=FUTURE_COLOR)
+    ax.plot(prd_tst.index, prd_tst.values, "--", label="test prediction", color=PRED_FUTURE_COLOR)
+    ax.legend(prop={"size": 5})
+
+    return ax
+
+
+def plot_forecasting_eval(trn: Series, tst: Series, prd_trn: Series, prd_tst: Series, title: str = "") -> list[Axes]:
+    ev1: dict = {
+        "RMSE": [sqrt(FORECAST_MEASURES["MSE"](trn, prd_trn)), sqrt(FORECAST_MEASURES["MSE"](tst, prd_tst))],
+        "MAE": [FORECAST_MEASURES["MAE"](trn, prd_trn), FORECAST_MEASURES["MAE"](tst, prd_tst)],
+    }
+    ev2: dict = {
+        "MAPE": [FORECAST_MEASURES["MAPE"](trn, prd_trn), FORECAST_MEASURES["MAPE"](tst, prd_tst)],
+        "R2": [FORECAST_MEASURES["R2"](trn, prd_trn), FORECAST_MEASURES["R2"](tst, prd_tst)],
+    }
+
+    # print(eval1, eval2)
+    fig, axs = subplots(1, 2, figsize=(1.5 * HEIGHT, 0.75 * HEIGHT), squeeze=True)
+    fig.suptitle(title)
+    plot_multibar_chart(["train", "test"], ev1, ax=axs[0], title="Scale-dependent error", percentage=False)
+    plot_multibar_chart(["train", "test"], ev2, ax=axs[1], title="Percentage error", percentage=True)
+
+    return axs
+
